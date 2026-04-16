@@ -1,0 +1,96 @@
+// ============================================================
+// Contoso Mining — Real-Time Dashboard KQL Queries
+// ============================================================
+// Gunakan query ini untuk membuat tiles di Real-Time Dashboard.
+// Cara: Dashboard > "+ Add tile" > paste query > pilih visual type
+// ============================================================
+
+
+// --- Tile 1: Total Tonnage Hari Ini (Scorecard) ---
+HaulingEvents
+| where timestamp > ago(1d)
+| where status == "unloaded"
+| summarize TotalTonnage = round(sum(payload_ton), 0)
+
+
+// --- Tile 2: Active Trucks (Scorecard) ---
+HaulingEvents
+| summarize arg_max(timestamp, *) by truck_id
+| where status != "idle"
+| count
+
+
+// --- Tile 3: Avg Cycle Time (Scorecard) ---
+HaulingEvents
+| where timestamp > ago(1d)
+| where cycle_phase == "unloading"
+| summarize AvgCycleMin = round(avg(speed_kmh), 0)
+// Note: ganti dengan cycle_time jika field tersedia
+
+
+// --- Tile 4: Truck Map (Map Visual) ---
+HaulingEvents
+| summarize arg_max(timestamp, *) by truck_id
+| project truck_id, latitude, longitude, status, payload_ton, speed_kmh
+
+
+// --- Tile 5: Hauling Trend 24 Jam (Time Chart) ---
+HaulingEvents
+| where timestamp > ago(1d)
+| where status == "unloaded"
+| summarize Tons = round(sum(payload_ton), 0) by bin(timestamp, 1h)
+| order by timestamp asc
+
+
+// --- Tile 6: Stockpile Levels (Bar Chart) ---
+StockpileEvents
+| summarize arg_max(timestamp, *) by stockpile_id
+| project stockpile_id, level_percentage, estimated_tonnage, temperature_celsius
+| order by stockpile_id asc
+
+
+// --- Tile 7: Barge Loading Status (Table) ---
+BargeLoadingEvents
+| summarize arg_max(timestamp, *) by barge_id
+| project 
+    barge_id, 
+    jetty_id,
+    status, 
+    loaded_tonnage, 
+    target_tonnage, 
+    Progress = round(loaded_tonnage / target_tonnage * 100, 0),
+    loading_rate_tph
+| order by barge_id asc
+
+
+// --- Tile 8: Top 10 Trucks by Tonnage (Bar Chart) ---
+HaulingEvents
+| where timestamp > ago(1d)
+| where status == "unloaded"
+| summarize Tons = round(sum(payload_ton), 0) by truck_id
+| top 10 by Tons desc
+
+
+// --- Tile 9: Stockpile Temperature (Table) ---
+StockpileEvents
+| summarize arg_max(timestamp, *) by stockpile_id
+| project 
+    stockpile_id, 
+    temperature_celsius,
+    Status = case(
+        temperature_celsius > 60, "🔴 CRITICAL",
+        temperature_celsius > 50, "🟡 WARNING", 
+        "🟢 NORMAL"
+    )
+
+
+// --- Tile 10: Recent Events Feed (Table) ---
+HaulingEvents
+| union StockpileEvents, BargeLoadingEvents
+| top 20 by timestamp desc
+| project timestamp, 
+    Type = case(
+        isnotnull(truck_id), "Hauling",
+        isnotnull(stockpile_id), "Stockpile",
+        "Barge"
+    )

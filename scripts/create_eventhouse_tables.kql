@@ -1,0 +1,56 @@
+// ============================================================
+// Contoso Mining — Create Eventhouse Tables
+// ============================================================
+// Jalankan script ini di KQL Database editor pada Eventhouse
+// Cara: Eventhouse > KQL Database > "+ Query" > paste > Run
+// ============================================================
+
+// --- 1. Tabel Hauling (data GPS & tonase truck) ---
+.create table HaulingEvents (
+    truck_id: string,
+    timestamp: datetime,
+    latitude: real,
+    longitude: real,
+    speed_kmh: real,
+    payload_ton: real,
+    status: string,
+    route: string,
+    cycle_phase: string
+)
+
+// --- 2. Tabel Stockpile (data level & suhu stockpile) ---
+.create table StockpileEvents (
+    stockpile_id: string,
+    timestamp: datetime,
+    level_percentage: real,
+    estimated_tonnage: real,
+    max_capacity_ton: real,
+    coal_quality: string,
+    temperature_celsius: real
+)
+
+// --- 3. Tabel Barge Loading (data muat tongkang) ---
+.create table BargeLoadingEvents (
+    barge_id: string,
+    timestamp: datetime,
+    jetty_id: string,
+    loading_rate_tph: real,
+    loaded_tonnage: real,
+    target_tonnage: real,
+    status: string,
+    eta_completion: datetime
+)
+
+// ============================================================
+// Opsional: Enable streaming ingestion untuk performa real-time
+// ============================================================
+.alter table HaulingEvents policy streamingingestion enable
+.alter table StockpileEvents policy streamingingestion enable
+.alter table BargeLoadingEvents policy streamingingestion enable
+
+// ============================================================
+// Opsional: Set data retention 90 hari
+// ============================================================
+.alter table HaulingEvents policy retention softdelete = 90d
+.alter table StockpileEvents policy retention softdelete = 90d
+.alter table BargeLoadingEvents policy retention softdelete = 90d

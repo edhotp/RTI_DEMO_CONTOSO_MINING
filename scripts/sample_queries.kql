@@ -1,0 +1,117 @@
+// ============================================================
+// Contoso Mining — Sample KQL Queries
+// ============================================================
+// Query untuk verifikasi data dan eksplorasi.
+// Jalankan di KQL Queryset atau KQL Database editor.
+// ============================================================
+
+
+// ============================================================
+// VERIFIKASI: Cek data sudah masuk
+// ============================================================
+
+// Cek jumlah row per tabel
+HaulingEvents | count
+StockpileEvents | count
+BargeLoadingEvents | count
+
+// Lihat 5 data terbaru hauling
+HaulingEvents | top 5 by timestamp desc
+
+// Lihat 5 data terbaru stockpile
+StockpileEvents | top 5 by timestamp desc
+
+// Lihat 5 data terbaru barge
+BargeLoadingEvents | top 5 by timestamp desc
+
+
+// ============================================================
+// HAULING QUERIES
+// ============================================================
+
+// Total tonase hari ini per truck
+HaulingEvents
+| where timestamp > ago(1d)
+| where status == "unloaded"
+| summarize 
+    TotalTonnage = round(sum(payload_ton), 1), 
+    TripCount = count()
+    by truck_id
+| extend AvgPerTrip = round(TotalTonnage / TripCount, 1)
+| order by TotalTonnage desc
+
+// Truck yang idle lebih dari 30 menit
+HaulingEvents
+| summarize arg_max(timestamp, *) by truck_id
+| where status == "idle"
+| extend IdleMinutes = datetime_diff('minute', now(), timestamp)
+| where IdleMinutes > 30
+| project truck_id, status, IdleMinutes, latitude, longitude
+
+// Rata-rata speed per route
+HaulingEvents
+| where timestamp > ago(1d)
+| where speed_kmh > 0
+| summarize AvgSpeed = round(avg(speed_kmh), 1) by route
+| order by AvgSpeed desc
+
+// Distribusi cycle phase saat ini
+HaulingEvents
+| summarize arg_max(timestamp, *) by truck_id
+| summarize Count = count() by cycle_phase
+| order by Count desc
+
+
+// ============================================================
+// STOCKPILE QUERIES
+// ============================================================
+
+// Level terkini semua stockpile
+StockpileEvents
+| summarize arg_max(timestamp, *) by stockpile_id
+| project stockpile_id, level_percentage, estimated_tonnage, 
+    max_capacity_ton, temperature_celsius, coal_quality
+| order by level_percentage asc
+
+// Stockpile dengan level kritis (< 30%)
+StockpileEvents
+| summarize arg_max(timestamp, *) by stockpile_id
+| where level_percentage < 30
+| project stockpile_id, level_percentage, estimated_tonnage
+
+// Trend level stockpile per jam (24 jam terakhir)
+StockpileEvents
+| where timestamp > ago(1d)
+| summarize AvgLevel = round(avg(level_percentage), 1) 
+    by bin(timestamp, 1h), stockpile_id
+| order by timestamp asc, stockpile_id asc
+
+// Stockpile dengan suhu tinggi (> 50°C)
+StockpileEvents
+| summarize arg_max(timestamp, *) by stockpile_id
+| where temperature_celsius > 50
+| project stockpile_id, temperature_celsius, level_percentage
+
+
+// ============================================================
+// BARGE QUERIES
+// ============================================================
+
+// Status semua tongkang saat ini
+BargeLoadingEvents
+| summarize arg_max(timestamp, *) by barge_id
+| project barge_id, jetty_id, status, 
+    loaded_tonnage, target_tonnage,
+    Progress = round(loaded_tonnage / target_tonnage * 100, 0),
+    loading_rate_tph, eta_completion
+
+// Total tonase yang sudah dimuat hari ini
+BargeLoadingEvents
+| where timestamp > ago(1d)
+| where status in ("loaded", "departed")
+| summarize TotalShipped = sum(loaded_tonnage), BargeCount = dcount(barge_id)
+
+// Rata-rata loading rate per jetty
+BargeLoadingEvents
+| where status == "loading"
+| summarize AvgRate = round(avg(loading_rate_tph), 0) by jetty_id

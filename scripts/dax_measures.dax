@@ -1,0 +1,117 @@
+// ============================================================
+// Contoso Mining — DAX Measures untuk Semantic Model
+// ============================================================
+// Cara pakai:
+//   1. Buka Semantic Model di Fabric Portal
+//   2. Klik tabel yang sesuai
+//   3. Klik "New measure"
+//   4. Paste satu measure, tekan Enter
+//   5. Ulangi untuk measure berikutnya
+// ============================================================
+
+
+// ============================
+// HAULING MEASURES
+// ============================
+
+Total Tonnage = 
+    CALCULATE(
+        SUM(FactHauling[payload_ton]),
+        FactHauling[status] = "unloaded"
+    )
+
+Total Trips = 
+    CALCULATE(
+        COUNTROWS(FactHauling),
+        FactHauling[status] = "unloaded"
+    )
+
+Avg Payload Per Trip = 
+    DIVIDE([Total Tonnage], [Total Trips], 0)
+
+Avg Cycle Time (min) = 
+    AVERAGE(FactHauling[cycle_time_minutes])
+
+Tonnage vs Target % = 
+    VAR _actual = [Total Tonnage]
+    VAR _target = 15000
+    RETURN DIVIDE(_actual, _target, 0)
+
+Active Trucks = 
+    CALCULATE(
+        DISTINCTCOUNT(FactHauling[truck_id]),
+        FactHauling[status] <> "idle"
+    )
+
+Idle Trucks = 
+    CALCULATE(
+        DISTINCTCOUNT(FactHauling[truck_id]),
+        FactHauling[status] = "idle"
+    )
+
+Truck Utilization % = 
+    DIVIDE([Active Trucks], DISTINCTCOUNT(FactHauling[truck_id]), 0)
+
+
+// ============================
+// STOCKPILE MEASURES
+// ============================
+
+Stockpile Utilization % = 
+    DIVIDE(
+        SUM(FactStockpile[estimated_tonnage]),
+        SUM(DimStockpile[max_capacity_ton]),
+        0
+    )
+
+Avg Temperature = 
+    AVERAGE(FactStockpile[temperature_celsius])
+
+Critical Stockpiles = 
+    COUNTROWS(
+        FILTER(
+            VALUES(FactStockpile[stockpile_id]),
+            CALCULATE(MAX(FactStockpile[level_percentage])) < 30
+        )
+    )
+
+
+// ============================
+// BARGE LOADING MEASURES
+// ============================
+
+Loading Efficiency % = 
+    DIVIDE(
+        SUM(FactBargeLoading[loaded_tonnage]),
+        SUM(FactBargeLoading[target_tonnage]),
+        0
+    )
+
+Avg Loading Rate (TPH) = 
+    AVERAGEX(
+        FILTER(FactBargeLoading, FactBargeLoading[status] = "loading"),
+        FactBargeLoading[loading_rate_tph]
+    )
+
+Barges Completed = 
+    CALCULATE(
+        DISTINCTCOUNT(FactBargeLoading[barge_id]),
+        FactBargeLoading[status] = "loaded" 
+            || FactBargeLoading[status] = "departed"
+    )
+
+Total Shipped Tonnage = 
+    CALCULATE(
+        SUM(FactBargeLoading[loaded_tonnage]),
+        FactBargeLoading[status] IN {"loaded", "departed"}
+    )
+
+Avg Barge Wait Time (hrs) = 
+    AVERAGEX(
+        FILTER(FactBargeLoading, FactBargeLoading[status] = "waiting"),
+        DATEDIFF(
+            FactBargeLoading[timestamp], 
+            FactBargeLoading[eta_completion], 
+            HOUR
+        )
+    )
