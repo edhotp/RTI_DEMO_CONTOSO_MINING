@@ -18,7 +18,11 @@ flowchart LR
     G --> H["📊 Semantic\nModel"]
     H --> I["📈 Power BI\nReport"]
     C --> J["🤖 Data Agent"]
+    H --> J
     C --> K["🧠 Operations\nAgent"]
+    C --> L["📘 Ontology"]
+    L -.->|"as data source"| J
+    L -->|"rules"| K
 
     style A fill:#FCE4EC
     style B fill:#FFF3E0
@@ -478,13 +482,14 @@ Data Agent memungkinkan tanya jawab data menggunakan bahasa natural.
 
 ### 12b. Tambah Data Sources
 
-Klik **+ Add data source** dan tambahkan (maks 5 total):
+Klik **+ Add data source** dan tambahkan (maks 5 total, kombinasi: Lakehouse, Warehouse, KQL DB, Semantic Model, Ontology, Graph):
 
 | # | Source Type | Source | Tabel |
 |---|-----------|--------|-------|
 | 1 | KQL Database | ContosoMiningEH | HaulingEvents, StockpileEvents, BargeLoadingEvents |
 | 2 | Lakehouse | ContosoMiningLH | FactHauling, DimTruck, dll |
 | 3 | Semantic Model | ContosoMining_SemanticModel | (otomatis) |
+| 4 | Ontology *(opsional)* | MiningOntology | (jika sudah dibuat di Step 13) |
 
 ### 12c. Tambah Instructions
 
@@ -557,6 +562,15 @@ Klik **Publish** untuk membuat endpoint. Opsional: integrasikan ke **Copilot Stu
 7. Install **"Fabric Operations Agent"** di Teams app store
 
 ✅ **Hasil:** AI agent yang proaktif memonitor data dan kirim rekomendasi via Teams.
+
+> **💡 Data Agent vs Operations Agent:**
+>
+> | Aspek | Data Agent | Operations Agent |
+> |-------|-----------|------------------|
+> | Mode | Reaktif — user bertanya | Proaktif — berjalan otomatis |
+> | Data Source | Maks 5: KQL DB, Lakehouse, Warehouse, Semantic Model, Ontology, Graph | **Eventhouse saja** |
+> | Output | Jawaban teks/tabel | Rekomendasi aksi via Teams |
+> | Capacity | F2+ atau P1+ | F2+ (trial tidak didukung) |
 
 ---
 

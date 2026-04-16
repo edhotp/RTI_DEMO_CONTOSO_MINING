@@ -73,8 +73,9 @@ flowchart TB
     EH -->|Shortcut| LH
     LH --> NB --> SM --> PBI
     EH & LH & SM --> AGENT
-    ONT --> OPSAG
-    EH --> OPSAG
+    ONT -.->|"as data source"| AGENT
+    ONT -->|"rules & context"| OPSAG
+    EH -->|"knowledge source"| OPSAG
     OPSAG -->|"Rekomendasi via Teams"| DA
 
     style Generator fill:#FCE4EC,stroke:#C62828
@@ -95,7 +96,7 @@ flowchart TB
 | **Real-Time Intelligence** | Eventhouse + KQL + Dashboard | Menyimpan, query, dan visualisasi data secara real-time |
 | **Alerts** | Data Activator (Reflex) | Mengirim notifikasi otomatis saat kondisi tertentu terpenuhi |
 | **Analytics** | Lakehouse + Notebook + Semantic Model + Power BI | Analisis historis: star schema, DAX measures, dan 3-page report |
-| **AI & IQ** | Data Agent + Operations Agent + Ontology | Tanya jawab data dengan bahasa natural & rekomendasi aksi otomatis oleh AI |
+| **AI & IQ** | Data Agent + Operations Agent + Ontology | Data Agent: tanya jawab natural language (sumber: EH + LH + SM + Ontology). Operations Agent: monitoring proaktif & rekomendasi aksi otomatis (sumber: Eventhouse only + Ontology untuk rules) |
 
 ---
 
@@ -723,8 +724,15 @@ flowchart TD
 5. **Recipients:** Dispatch Team, Mine Supervisor, Safety Officer
 
 > **💡 Perbedaan Data Agent vs Operations Agent:**
-> - **Data Agent** = menjawab pertanyaan (reaktif, diminta user)
-> - **Operations Agent** = memonitor & merekomendasikan aksi (proaktif, berjalan otomatis)
+>
+> | Aspek | Data Agent (GA) | Operations Agent (Preview) |
+> |-------|----------------|---------------------------|
+> | **Mode** | Reaktif — menjawab pertanyaan user | Proaktif — berjalan otomatis di background |
+> | **Data Sources** | Maks 5: Lakehouse, Warehouse, KQL DB, Semantic Model, Ontology, Graph | **Eventhouse (KQL Database) saja** |
+> | **Ontology** | Bisa dipakai sebagai salah satu data source | Dipakai untuk business rules & reasoning |
+> | **Output** | Jawaban terstruktur (tabel, summary) | Rekomendasi aksi via Teams + human approval |
+> | **Aksi** | Read-only, tidak bisa eksekusi perubahan | Bisa trigger Activator → Power Automate |
+> | **Capacity** | F2+ atau P1+ | F2+ (trial **tidak** didukung) |
 
 ---
 
@@ -1382,10 +1390,11 @@ flowchart TB
 
 1. Dalam workspace, klik **+ New item** → **Data Agent**
 2. Nama: `ContosoMiningAgent`
-3. **Add Data Sources** (maks 5 dalam kombinasi apapun):
+3. **Add Data Sources** (maks 5 dalam kombinasi apapun: Lakehouse, Warehouse, KQL DB, Semantic Model, Ontology, Graph):
    - KQL Database: `ContosoMiningEH` → pilih tabel `HaulingEvents`, `StockpileEvents`, `BargeLoadingEvents`
    - Lakehouse: `ContosoMiningLH` → pilih tabel historis
    - Power BI Semantic Model: `Historical Analysis`
+   - *(Opsional)* Ontology: `MiningOntology` — jika sudah dibuat di Step 9
 4. **Add Instructions:**
    ```
    Kamu adalah asisten data operasional Contoso Mining.
@@ -1486,6 +1495,7 @@ flowchart LR
     subgraph S6["6. ACT & ASK"]
         DA["Data Activator"]
         AG["Data Agent"]
+        ONT["Ontology"]
         OP["Operations Agent"]
     end
 
@@ -1495,8 +1505,11 @@ flowchart LR
     LH --> NB --> SM
     EH -->|KQL| RTD
     SM -->|DAX| PBI
-    EH --> DA & AG & OP
-    SM --> AG
+    EH --> DA
+    EH & LH & SM --> AG
+    ONT -.->|"as data source"| AG
+    EH -->|"knowledge source"| OP
+    ONT -->|"rules & context"| OP
 
     style S1 fill:#FCE4EC,stroke:#C62828
     style S2 fill:#FFF3E0,stroke:#E65100
