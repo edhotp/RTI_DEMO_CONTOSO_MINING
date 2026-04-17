@@ -51,6 +51,6 @@
 // ============================================================
 // Opsional: Set data retention 90 hari
 // ============================================================
-.alter table HaulingEvents policy retention softdelete = 90d
-.alter table StockpileEvents policy retention softdelete = 90d
-.alter table BargeLoadingEvents policy retention softdelete = 90d
+.alter-merge table HaulingEvents policy retention softdelete = 90d recoverability = disabled
+.alter-merge table StockpileEvents policy retention softdelete = 90d recoverability = disabled
+.alter-merge table BargeLoadingEvents policy retention softdelete = 90d recoverability = disabled
