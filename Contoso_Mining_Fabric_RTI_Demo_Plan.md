@@ -400,8 +400,8 @@ flowchart LR
 {
     "truck_id": "TRK-007",
     "timestamp": "2026-04-16T10:30:00Z",
-    "latitude": -1.6821,
-    "longitude": 116.0735,
+    "latitude": -2.065,
+    "longitude": 115.435,
     "speed_kmh": 25.3,
     "payload_ton": 38.5,
     "status": "loaded",
@@ -1253,8 +1253,8 @@ flowchart TB
 | 2 | Active Trucks | Stat/Scorecard | `HaulingEvents \| summarize arg_max(timestamp,*) by truck_id \| where status != "idle" \| count` | 3×1 | 30s |
 | 3 | Avg Cycle Time | Stat/Scorecard | `HaulingEvents \| where timestamp > ago(1d) \| summarize avg(cycle_time_minutes) \| project round(Column1,0)` | 3×1 | 30s |
 | 4 | Alerts Active | Stat/Scorecard | Count dari Data Activator alert feed | 3×1 | 30s |
-| 5 | Truck Map | Map | `HaulingEvents \| summarize arg_max(timestamp,*) by truck_id \| project truck_id, latitude, longitude, status, payload_ton` | 6×2 | 30s |
-| 6 | Hauling Trend | Time chart | `HaulingEvents \| where timestamp > ago(1d) and status == "unloaded" \| summarize Tons=sum(payload_ton) by bin(timestamp,1h)` | 6×1 | 30s |
+| 5 | Truck Map | Map | `HaulingEvents \| where timestamp > ago(1h) \| summarize arg_max(timestamp,*) by truck_id \| extend lat = latitude, lon = longitude \| project truck_id, lat, lon, status, payload_ton, speed_kmh` | 6×2 | 30s |
+| 6 | Hauling Trend | Time chart | `HaulingEvents \| where timestamp > ago(1h) and payload_ton > 0 \| summarize Tons=sum(payload_ton), Trips=count() by bin(timestamp,1m)` | 6×1 | 30s |
 | 7 | Stockpile Levels | Multi-bar chart | `StockpileEvents \| summarize arg_max(timestamp,*) by stockpile_id \| project stockpile_id, level_percentage` | 6×1 | 60s |
 | 8 | Barge Status | Table | `BargeLoadingEvents \| summarize arg_max(timestamp,*) by barge_id \| project barge_id, status, loaded_tonnage, target_tonnage, Progress=round(loaded_tonnage/target_tonnage*100,0)` | 4×1 | 45s |
 | 9 | Truck Performance | Bar chart | `HaulingEvents \| where timestamp > ago(1d) and status == "unloaded" \| summarize Tons=round(sum(payload_ton),0) by truck_id \| top 10 by Tons` | 4×1 | 30s |

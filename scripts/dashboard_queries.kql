@@ -28,16 +28,23 @@ HaulingEvents
 
 
 // --- Tile 4: Truck Map (Map Visual) ---
+// PENTING: Di visual config, pastikan:
+//   - Latitude/Y  → kolom "lat" 
+//   - Longitude/X → kolom "lon"
+// Jika titik muncul di tempat salah, kemungkinan lat/lon tertukar di visual binding.
 HaulingEvents
+| where timestamp > ago(1h)
 | summarize arg_max(timestamp, *) by truck_id
-| project truck_id, latitude, longitude, status, payload_ton, speed_kmh
+| extend lat = latitude, lon = longitude
+| project truck_id, lat, lon, status, payload_ton, speed_kmh
 
 
 // --- Tile 5: Hauling Trend 24 Jam (Time Chart) ---
+// Gunakan bin 1 menit agar grafik lebih granular & bergerak saat demo video
 HaulingEvents
-| where timestamp > ago(1d)
-| where status == "unloaded"
-| summarize Tons = round(sum(payload_ton), 0) by bin(timestamp, 1h)
+| where timestamp > ago(1h)
+| where payload_ton > 0
+| summarize Tons = round(sum(payload_ton), 0), Trips = count() by bin(timestamp, 1m)
 | order by timestamp asc
 
 

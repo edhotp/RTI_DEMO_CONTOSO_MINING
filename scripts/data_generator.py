@@ -39,14 +39,16 @@ BARGE_EVENTHUB = "es_c021a294-f90b-4f46-bffc-7491e9a312ae"
 # =============================================================================
 # MASTER DATA
 # =============================================================================
-# Koordinat area tambang Adaro, Kalimantan Selatan (on-road / daratan)
-# Setiap rute punya titik asal & tujuan, truk muncul di antara keduanya
+# Koordinat area tambang Adaro, Tabalong-Balangan, Kalimantan Selatan
+# Ref: Tutupan & Wara pit ~(-2.08, 115.43), Tanjung ~(-2.15, 115.38)
+# Kelanis port via Sungai Barito ~(-2.22, 115.32)
+# Semua titik 80-150 km dari pesisir — pasti di daratan
 ROUTES_COORDS = {
-    "Pit-A1 to ROM-Stockyard":  {"lat": -2.100, "lon": 115.460, "dlat": 0.015, "dlon": 0.020},
-    "Pit-A2 to ROM-Stockyard":  {"lat": -2.120, "lon": 115.480, "dlat": 0.015, "dlon": 0.020},
-    "Pit-B1 to Port-A":         {"lat": -2.070, "lon": 115.490, "dlat": 0.020, "dlon": 0.025},
-    "ROM-Stockyard to Port-A":  {"lat": -2.040, "lon": 115.520, "dlat": 0.015, "dlon": 0.020},
-    "ROM-Stockyard to Port-B":  {"lat": -2.025, "lon": 115.540, "dlat": 0.015, "dlon": 0.020},
+    "Pit-A1 to ROM-Stockyard":  {"lat": -2.065, "lon": 115.435, "dlat": 0.004, "dlon": 0.004},
+    "Pit-A2 to ROM-Stockyard":  {"lat": -2.085, "lon": 115.450, "dlat": 0.004, "dlon": 0.004},
+    "Pit-B1 to Port-A":         {"lat": -2.105, "lon": 115.420, "dlat": 0.005, "dlon": 0.005},
+    "ROM-Stockyard to Port-A":  {"lat": -2.155, "lon": 115.380, "dlat": 0.005, "dlon": 0.005},
+    "ROM-Stockyard to Port-B":  {"lat": -2.195, "lon": 115.345, "dlat": 0.005, "dlon": 0.005},
 }
 
 ROUTES = list(ROUTES_COORDS.keys())
@@ -187,7 +189,7 @@ def send_events(conn_str, eventhub_name, events):
 # =============================================================================
 # STREAM LOOPS
 # =============================================================================
-def stream_hauling(interval=30):
+def stream_hauling(interval=10):
     print(f"  Hauling  : setiap {interval}s, {len(TRUCKS)} trucks")
     while True:
         events = [generate_hauling_event(t) for t in TRUCKS]
@@ -195,7 +197,7 @@ def stream_hauling(interval=30):
         time.sleep(interval)
 
 
-def stream_stockpile(interval=60):
+def stream_stockpile(interval=20):
     print(f"  Stockpile: setiap {interval}s, {len(STOCKPILES)} sites")
     while True:
         events = [generate_stockpile_event(s) for s in STOCKPILES]
@@ -203,7 +205,7 @@ def stream_stockpile(interval=60):
         time.sleep(interval)
 
 
-def stream_barge(interval=45):
+def stream_barge(interval=15):
     print(f"  Barge    : setiap {interval}s, {len(BARGES)} barges")
     while True:
         events = [generate_barge_event(b) for b in BARGES]

@@ -253,11 +253,20 @@ Untuk setiap tile:
 | 1 | Total Tonnage Today | Stat (scorecard) | Tile 1 |
 | 2 | Active Trucks | Stat (scorecard) | Tile 2 |
 | 3 | Truck Map | Map | Tile 4 |
-| 4 | Hauling Trend 24h | Time chart (line) | Tile 5 |
+| 4 | Hauling Trend (1m bins) | Time chart (line) | Tile 5 |
 | 5 | Stockpile Levels | Bar chart | Tile 6 |
 | 6 | Barge Status | Table | Tile 7 |
 | 7 | Top 10 Trucks | Bar chart | Tile 8 |
 | 8 | Stockpile Temperature | Table | Tile 9 |
+
+> **⚠️ Tips Konfigurasi Truck Map (Tile 4):**
+> - Setelah paste query dan klik Run, pilih visual type **Map**
+> - Di panel **Visual formatting**, set:
+>   - **Define location by** = `Latitude and Longitude`
+>   - **Latitude** = kolom **`lat`** (nilainya sekitar -2.xxx)
+>   - **Longitude** = kolom **`lon`** (nilainya sekitar 115.xxx)
+> - Jika titik muncul di lokasi yang salah (misal Norway/Eropa), kemungkinan kolom lat dan lon **tertukar** di binding — swap keduanya
+> - **Size** bisa di-set ke kolom `payload_ton`, **Color** ke kolom `status`
 
 ### 6c. Set Auto-Refresh
 
