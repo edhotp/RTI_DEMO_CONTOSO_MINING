@@ -20,12 +20,11 @@ HaulingEvents
 | count
 
 
-// --- Tile 3: Avg Cycle Time (Scorecard) ---
+// --- Tile 3: Avg Speed Loaded Trucks (Scorecard) ---
 HaulingEvents
 | where timestamp > ago(1d)
-| where cycle_phase == "unloading"
-| summarize AvgCycleMin = round(avg(speed_kmh), 0)
-// Note: ganti dengan cycle_time jika field tersedia
+| where status == "loaded" and speed_kmh > 0
+| summarize AvgSpeedKmh = round(avg(speed_kmh), 1)
 
 
 // --- Tile 4: Truck Map (Map Visual) ---
@@ -86,11 +85,16 @@ StockpileEvents
 
 // --- Tile 10: Recent Events Feed (Table) ---
 HaulingEvents
-| union StockpileEvents, BargeLoadingEvents
+| extend Type = "Hauling", item_id = truck_id
+| project timestamp, Type, item_id
+| union (
+    StockpileEvents
+    | extend Type = "Stockpile", item_id = stockpile_id
+    | project timestamp, Type, item_id
+)
+| union (
+    BargeLoadingEvents
+    | extend Type = "Barge", item_id = barge_id
+    | project timestamp, Type, item_id
+)
 | top 20 by timestamp desc
-| project timestamp, 
-    Type = case(
-        isnotnull(truck_id), "Hauling",
-        isnotnull(stockpile_id), "Stockpile",
-        "Barge"
-    )

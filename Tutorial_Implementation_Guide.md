@@ -269,41 +269,119 @@ Untuk setiap tile:
 
 ---
 
-## Step 7: Buat Data Activator (Alerts)
+## Step 7: Buat Fabric Activator (Alerts)
 
-Data Activator mengirim notifikasi otomatis saat kondisi tertentu terpenuhi.
+Fabric Activator adalah no-code event detection engine yang memonitor data stream secara real-time dan otomatis menjalankan aksi (email, Teams, pipeline, dll.) saat kondisi tertentu terpenuhi.
 
-### 7a. Buat Reflex
+> **💡 Terminologi:** Activator dulu dikenal sebagai "Reflex" / "Data Activator". Sekarang nama resminya adalah **Fabric Activator** (bagian dari Real-Time Intelligence stack).
 
-1. Klik **+ New item** → **Reflex**
-2. Nama: `StockpileAlerts`
+Ada **dua cara** membuat alert — pilih salah satu atau keduanya:
 
-### 7b. Hubungkan ke Data
+---
 
-1. Klik **+ Get data** → **Eventhouse**
-2. Pilih database `ContosoMiningEH` → tabel `StockpileEvents`
+### Metode A: Set Alert dari Real-Time Dashboard (Recommended)
 
-### 7c. Buat Trigger Rules
+Cara paling mudah — langsung dari dashboard yang baru dibuat di Step 6.
 
-**Rule 1: Stockpile Level Kritis**
-1. Klik **+ New trigger**
-2. Object: `stockpile_id`
-3. Condition: `level_percentage` < `30`
-4. Action: **Send email** ke dispatch@contosomining.com
-5. (Opsional) Action: **Post to Teams**
+#### 7a-1. Buka Dashboard
 
-**Rule 2: Suhu Bahaya**
-1. Klik **+ New trigger**
-2. Object: `stockpile_id`
-3. Condition: `temperature_celsius` > `60`
-4. Action: **Send email** ke safety@contosomining.com
-5. Severity: **Critical**
+1. Buka Real-Time Dashboard **`Mining Operations Live`** (dari Step 6)
+2. Pilih tile yang ingin dimonitor, misalnya tile **Stockpile Levels** (bar chart)
 
-### 7d. Aktifkan
+#### 7a-2. Buat Alert Rule — Stockpile Level Kritis
 
-Klik **Start** untuk mengaktifkan semua triggers.
+1. Klik **⋯ (More menu)** di pojok kanan atas tile **Stockpile Levels** → pilih **Set Alert**
+   - Alternatif: klik tombol **Set alert** di ribbon menu bar, lalu pilih tile yang ingin dimonitor
+2. Di panel **Set alert** yang muncul di sisi kanan:
+   - **Details**: Nama rule = `Stockpile Level Kritis`
+   - **Monitor**: Set frekuensi query, misal `Every 5 minutes`
+   - **Condition**:
+     - On each event **grouped by** `stockpile_id`
+     - When `level_percentage` **Is less than** `30`
+     - Occurrence: `Each time condition is met`
+   - **Action**: Pilih **Send email**
+     - To: `dispatch@contosomining.com` (atau email kamu untuk testing)
+     - Subject: `⚠️ Stockpile Level Kritis`
+     - Headline: `Level stockpile di bawah 30%`
+     - Notes: `Segera isi ulang stockpile. ID: @stockpile_id, Level: @level_percentage%`
+     - (Gunakan `@` untuk mereferensikan property data dalam pesan)
+   - **Save location**: Pilih workspace `Contoso-Mining-RTI`, beri nama Activator: `StockpileAlerts`
+3. Klik **Create**
 
-✅ **Hasil:** Alert otomatis aktif. Kamu akan terima email/Teams saat stockpile level drop atau suhu naik.
+#### 7a-3. Buat Alert Rule — Suhu Bahaya
+
+1. Pada tile **Stockpile Temperature**, klik **⋯** → **Set Alert**
+2. Di panel **Set alert**:
+   - **Details**: Nama rule = `Suhu Bahaya`
+   - **Monitor**: `Every 5 minutes`
+   - **Condition**:
+     - On each event **grouped by** `stockpile_id`
+     - When `temperature_celsius` **Is greater than** `60`
+     - Occurrence: `Each time condition is met`
+   - **Action**: Pilih **Teams** → **Message to individuals**
+     - To: email penerima (atau email kamu)
+     - Headline: `🔥 SUHU BAHAYA di Stockpile`
+     - Notes: `Suhu @temperature_celsius°C melebihi batas aman! Stockpile: @stockpile_id`
+   - **Save location**: Pilih Activator `StockpileAlerts` yang sama (atau buat baru)
+3. Klik **Create**
+
+> **⚠️ Limitasi Set Alert dari Dashboard:**  
+> Tidak semua tipe visual bisa di-set alert. **Tidak didukung:** Tables, Maps, Scatter, Heatmaps, Anomalies, Funnel, Markdown. Untuk tile dengan visual tersebut, gunakan Metode B.
+
+---
+
+### Metode B: Tambah Activator sebagai Destination di Eventstream (Alternatif)
+
+Cara ini lebih fleksibel — langsung monitor event stream dari Step 3.
+
+#### 7b-1. Tambah Activator Destination
+
+1. Buka Eventstream **`StockpileStream`** (dari Step 3)
+2. Klik **Edit** untuk masuk ke Edit mode
+3. Klik **Add destination** di ribbon → pilih **Activator**
+4. Di panel Activator:
+   - Destination name: `StockpileActivator`
+   - Workspace: `Contoso-Mining-RTI`
+   - Activator: Pilih `StockpileAlerts` (jika sudah ada dari Metode A) atau klik **Create new** → nama: `StockpileAlerts`
+5. Klik **Save** → lalu klik **Publish**
+
+#### 7b-2. Buat Rule dari Eventstream
+
+1. Setelah Publish, di **Live view**, klik ikon **alert** pada node Activator destination
+2. Di panel **Rules**, klik **Add rule**
+3. Isi detail rule:
+   - **Rule name**: `Stockpile Level Kritis`
+   - **Condition**: `level_percentage < 30`
+   - **Action**: Send email / Teams notification
+4. Klik **Save**
+5. Ulangi untuk rule `Suhu Bahaya` (`temperature_celsius > 60`)
+
+#### 7b-3. Manage Rules
+
+Dari panel Rules di Eventstream, kamu bisa:
+- **Start/Stop** rule dengan toggle
+- **Edit/Delete** rule via menu **⋯**
+- **Open in Activator** untuk konfigurasi lebih lanjut (object grouping, property filters, summarization)
+
+---
+
+### 7c. Verifikasi & Test
+
+Apapun metode yang dipakai:
+
+1. Buka item **`StockpileAlerts`** (Activator) di workspace
+2. Di **Explorer** panel, kamu akan melihat objects dan rules yang sudah dibuat
+3. Klik salah satu rule → di panel **Definition**, klik **Send me a test action** untuk mengirim notifikasi percobaan
+4. Pastikan kamu menerima email atau pesan Teams
+5. Klik **Start** (atau **Save and start**) pada setiap rule untuk mengaktifkan monitoring real-time
+
+> **💡 Tips:**
+> - Rules dibuat dalam keadaan **Stopped** secara default — jangan lupa klik **Start**
+> - Activator hanya mendeteksi data **baru** setelah rule diaktifkan, bukan data historis
+> - Untuk menghentikan rule, klik **Stop** di ribbon — ini juga menghentikan biaya processing
+> - Kamu bisa menambahkan aksi lain seperti **Run Pipeline**, **Run Notebook**, atau **Power Automate flow** untuk automasi lebih lanjut
+
+✅ **Hasil:** Fabric Activator aktif memonitor data stockpile. Kamu akan terima email/Teams otomatis saat stockpile level turun di bawah 30% atau suhu melebihi 60°C.
 
 ---
 
@@ -600,7 +678,7 @@ Setelah semua step selesai, kamu seharusnya punya item-item ini di workspace:
 ├── 🔄 StockpileStream          (Eventstream)
 ├── 🔄 BargeLoadingStream       (Eventstream)
 ├── 📺 Mining Operations Live   (Real-Time Dashboard)
-├── ⚠️ StockpileAlerts          (Reflex / Data Activator)
+├── ⚠️ StockpileAlerts          (Fabric Activator)
 ├── 🏠 ContosoMiningLH          (Lakehouse — 3 shortcuts + 9 tables)
 ├── 📓 Create_Star_Schema       (Notebook)
 ├── 📊 ContosoMining_SemanticModel (Semantic Model)
@@ -622,7 +700,7 @@ Setelah semua step selesai, kamu seharusnya punya item-item ini di workspace:
 | Eventstream | [learn.microsoft.com/fabric/real-time-intelligence/event-streams](https://learn.microsoft.com/en-us/fabric/real-time-intelligence/event-streams/overview) |
 | Eventhouse | [learn.microsoft.com/fabric/real-time-intelligence/eventhouse](https://learn.microsoft.com/en-us/fabric/real-time-intelligence/eventhouse) |
 | Real-Time Dashboard | [learn.microsoft.com/fabric/real-time-intelligence/dashboard-real-time-create](https://learn.microsoft.com/en-us/fabric/real-time-intelligence/dashboard-real-time-create) |
-| Data Activator | [learn.microsoft.com/fabric/data-activator](https://learn.microsoft.com/en-us/fabric/data-activator/data-activator-introduction) |
+| Data Activator | [learn.microsoft.com/fabric/real-time-intelligence/data-activator](https://learn.microsoft.com/en-us/fabric/real-time-intelligence/data-activator/activator-introduction) |
 | Lakehouse | [learn.microsoft.com/fabric/data-engineering/lakehouse-overview](https://learn.microsoft.com/en-us/fabric/data-engineering/lakehouse-overview) |
 | Semantic Model | [learn.microsoft.com/fabric/fundamentals/semantic-models](https://learn.microsoft.com/en-us/power-bi/connect-data/service-datasets-understand) |
 | Data Agent | [learn.microsoft.com/fabric/data-science/concept-data-agent](https://learn.microsoft.com/en-us/fabric/data-science/concept-data-agent) |

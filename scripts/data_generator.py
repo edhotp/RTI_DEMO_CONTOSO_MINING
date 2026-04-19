@@ -27,30 +27,42 @@ from azure.eventhub import EventHubProducerClient, EventData
 #   3. Klik tab "Keys"
 #   4. Copy "Connection string" dan "Event hub name"
 
-HAULING_CONN_STR = "<PASTE_HAULING_STREAM_CONNECTION_STRING>"
-HAULING_EVENTHUB = "<PASTE_HAULING_STREAM_EVENTHUB_NAME>"
+HAULING_CONN_STR = "Endpoint=sb://esehusw32zdym5o9dhdl4d9n.servicebus.windows.net/;SharedAccessKeyName=key_bcfd1138-54c7-4078-a2e6-e72d67ad2f9e;SharedAccessKey=***REMOVED***;EntityPath=es_abb5840f-5b47-4655-92ba-764d235291be"
+HAULING_EVENTHUB = "es_abb5840f-5b47-4655-92ba-764d235291be"
 
-STOCKPILE_CONN_STR = "<PASTE_STOCKPILE_STREAM_CONNECTION_STRING>"
-STOCKPILE_EVENTHUB = "<PASTE_STOCKPILE_STREAM_EVENTHUB_NAME>"
+STOCKPILE_CONN_STR = "Endpoint=sb://esehusw3c7zzuw2zak1u528q.servicebus.windows.net/;SharedAccessKeyName=key_3f4e6241-2c28-4ee8-b773-3bfe4689981c;SharedAccessKey=***REMOVED***;EntityPath=es_06cf4ddb-2212-45aa-a339-935b30c2fef3"
+STOCKPILE_EVENTHUB = "es_06cf4ddb-2212-45aa-a339-935b30c2fef3"
 
-BARGE_CONN_STR = "<PASTE_BARGE_STREAM_CONNECTION_STRING>"
-BARGE_EVENTHUB = "<PASTE_BARGE_STREAM_EVENTHUB_NAME>"
+BARGE_CONN_STR = "Endpoint=sb://esehusw3dpernnpamxmi04nx.servicebus.windows.net/;SharedAccessKeyName=key_560a2193-bb5e-43ec-88ec-6fd4f02a1102;SharedAccessKey=***REMOVED***;EntityPath=es_c021a294-f90b-4f46-bffc-7491e9a312ae"
+BARGE_EVENTHUB = "es_c021a294-f90b-4f46-bffc-7491e9a312ae"
 
 # =============================================================================
 # MASTER DATA
 # =============================================================================
-TRUCKS = [
-    {"truck_id": f"TRK-{str(i).zfill(3)}", "base_lat": -1.6821, "base_lon": 116.0735}
-    for i in range(1, 21)  # 20 dump trucks
-]
+# Koordinat area tambang Adaro, Kalimantan Selatan (on-road / daratan)
+# Setiap rute punya titik asal & tujuan, truk muncul di antara keduanya
+ROUTES_COORDS = {
+    "Pit-A1 to ROM-Stockyard":  {"lat": -2.100, "lon": 115.460, "dlat": 0.015, "dlon": 0.020},
+    "Pit-A2 to ROM-Stockyard":  {"lat": -2.120, "lon": 115.480, "dlat": 0.015, "dlon": 0.020},
+    "Pit-B1 to Port-A":         {"lat": -2.070, "lon": 115.490, "dlat": 0.020, "dlon": 0.025},
+    "ROM-Stockyard to Port-A":  {"lat": -2.040, "lon": 115.520, "dlat": 0.015, "dlon": 0.020},
+    "ROM-Stockyard to Port-B":  {"lat": -2.025, "lon": 115.540, "dlat": 0.015, "dlon": 0.020},
+}
 
-ROUTES = [
-    "Pit-A1 to ROM-Stockyard",
-    "Pit-A2 to ROM-Stockyard",
-    "Pit-B1 to Port-A",
-    "ROM-Stockyard to Port-A",
-    "ROM-Stockyard to Port-B",
-]
+ROUTES = list(ROUTES_COORDS.keys())
+
+TRUCKS = []
+for i in range(1, 21):
+    route = ROUTES[i % len(ROUTES)]
+    rc = ROUTES_COORDS[route]
+    TRUCKS.append({
+        "truck_id": f"TRK-{str(i).zfill(3)}",
+        "route": route,
+        "base_lat": rc["lat"],
+        "base_lon": rc["lon"],
+        "dlat": rc["dlat"],
+        "dlon": rc["dlon"],
+    })
 
 STOCKPILES = [
     {"stockpile_id": "ROM", "max_capacity_ton": 80000, "base_level": 65.0},
@@ -70,22 +82,33 @@ COAL_QUALITIES = ["GAR-4200", "GAR-4700", "GAR-5000", "GAR-5500"]
 # DATA GENERATORS
 # =============================================================================
 def generate_hauling_event(truck):
-    cycle_phases = ["loading", "hauling", "queuing", "unloading", "returning", "idle"]
-    statuses = ["empty", "loaded", "unloading", "idle"]
-    phase = random.choice(cycle_phases)
-    status = "loaded" if phase == "hauling" else random.choice(statuses)
-    payload = round(random.uniform(30, 42), 1) if status == "loaded" else 0.0
+    # Phase & status yang konsisten agar KQL query bekerja
+    # "unloaded" = truk baru selesai bongkar → payload dihitung sbg tonnage terkirim
+    phase_status_map = {
+        "loading":   ("loading",   round(random.uniform(10, 25), 1)),
+        "hauling":   ("loaded",    round(random.uniform(30, 42), 1)),
+        "queuing":   ("loaded",    round(random.uniform(30, 42), 1)),
+        "unloading": ("unloading", round(random.uniform(30, 42), 1)),
+        "unloaded":  ("unloaded",  round(random.uniform(30, 42), 1)),
+        "returning": ("empty",     0.0),
+        "idle":      ("idle",      0.0),
+    }
+    phase = random.choice(list(phase_status_map.keys()))
+    status, payload = phase_status_map[phase]
     speed = round(random.uniform(15, 40), 1) if phase in ("hauling", "returning") else round(random.uniform(0, 5), 1)
+
+    dlat = truck.get("dlat", 0.008)
+    dlon = truck.get("dlon", 0.008)
 
     return {
         "truck_id": truck["truck_id"],
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "latitude": round(truck["base_lat"] + random.uniform(-0.05, 0.05), 6),
-        "longitude": round(truck["base_lon"] + random.uniform(-0.05, 0.05), 6),
+        "latitude": round(truck["base_lat"] + random.uniform(-dlat, dlat), 6),
+        "longitude": round(truck["base_lon"] + random.uniform(-dlon, dlon), 6),
         "speed_kmh": speed,
         "payload_ton": payload,
         "status": status,
-        "route": random.choice(ROUTES),
+        "route": truck.get("route", random.choice(ROUTES)),
         "cycle_phase": phase,
     }
 
