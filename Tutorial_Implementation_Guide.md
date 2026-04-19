@@ -399,6 +399,8 @@ Apapun metode yang dipakai:
 Lakehouse digunakan untuk analisis historis. Kita akan membuat shortcut dari Eventhouse ke Lakehouse — ini berarti data tetap satu salinan (zero-copy), tapi bisa diakses via Spark SQL, Power BI Direct Lake, dan engine Fabric lainnya dalam format **Delta Lake**.
 
 > **💡 Shortcut vs Copy:** Shortcut adalah symbolic link di OneLake. Tidak ada duplikasi data dan tidak ada biaya storage tambahan. Jika shortcut dihapus, data asli di Eventhouse tetap aman.
+>
+> **Ref:** [Shortcuts in a lakehouse](https://learn.microsoft.com/en-us/fabric/data-engineering/lakehouse-shortcuts) · [Eventhouse OneLake Availability](https://learn.microsoft.com/en-us/fabric/real-time-intelligence/one-logical-copy) · [Create an internal OneLake shortcut](https://learn.microsoft.com/en-us/fabric/onelake/create-onelake-shortcut)
 
 ### 8a. Aktifkan OneLake Availability di Eventhouse
 
@@ -413,47 +415,80 @@ Lakehouse digunakan untuk analisis historis. Kita akan membuat shortcut dari Eve
    - Klik **Enable**
 6. Tunggu hingga status berubah — panel details akan menunjukkan OneLake availability = Enabled
 
-> **⏱️ Catatan Latency:** Secara default, data baru muncul di OneLake dalam waktu hingga **3 jam** (adaptive batching untuk membuat file Parquet yang optimal). Untuk demo, kamu bisa mempercepat ke **5 menit** dengan menjalankan perintah KQL berikut di Query editor untuk setiap tabel:
->
-> ```kql
-> .alter-merge table HaulingEvents policy mirroring dataformat=parquet with (IsEnabled=true, TargetLatencyInMinutes=5)
-> ```
-> ```kql
-> .alter-merge table StockpileEvents policy mirroring dataformat=parquet with (IsEnabled=true, TargetLatencyInMinutes=5)
-> ```
-> ```kql
-> .alter-merge table BargeLoadingEvents policy mirroring dataformat=parquet with (IsEnabled=true, TargetLatencyInMinutes=5)
-> ```
->
-> Untuk mengecek apakah data sudah tersedia di OneLake:
-> ```kql
-> .show table HaulingEvents mirroring operations
-> ```
-> Jika kolom **Latency** menunjukkan `00:00:00`, semua data sudah tersinkron.
+### 8b. Percepat Mirroring Latency (WAJIB untuk Demo)
 
-### 8b. Buat Lakehouse
+> **⚠️ KRITIS:** Secara default, Eventhouse menggunakan adaptive batching yang bisa memakan waktu **hingga 3 jam** sebelum data muncul di OneLake sebagai file Delta Parquet. Selama data belum ter-mirror, tabel akan **greyed out / tidak bisa dipilih** saat membuat shortcut dari Lakehouse.
+
+Jalankan perintah berikut di **KQL Query editor** (di dalam KQL Database) untuk mempercepat latency ke **5 menit**:
+
+```kql
+.alter-merge table HaulingEvents policy mirroring dataformat=parquet with (IsEnabled=true, TargetLatencyInMinutes=5)
+```
+```kql
+.alter-merge table StockpileEvents policy mirroring dataformat=parquet with (IsEnabled=true, TargetLatencyInMinutes=5)
+```
+```kql
+.alter-merge table BargeLoadingEvents policy mirroring dataformat=parquet with (IsEnabled=true, TargetLatencyInMinutes=5)
+```
+
+> **⚠️ Trade-off:** Latency yang lebih pendek bisa menghasilkan banyak file Parquet kecil yang kurang optimal. Untuk demo ini tidak masalah, tapi untuk production gunakan default atau nilai yang lebih besar.
+
+### 8c. Tunggu & Verifikasi Mirroring Selesai
+
+> **🚨 JANGAN lanjut ke langkah 8d sebelum mirroring selesai!** Jika mirroring belum selesai, tabel di Eventhouse akan terlihat tapi **greyed out** (tidak bisa dipilih) saat membuat shortcut.
+
+Cek status mirroring untuk setiap tabel:
+
+```kql
+.show table HaulingEvents mirroring operations
+```
+```kql
+.show table StockpileEvents mirroring operations
+```
+```kql
+.show table BargeLoadingEvents mirroring operations
+```
+
+**Tunggu sampai kolom `Latency` menunjukkan `00:00:00`** untuk ketiga tabel. Ini berarti semua data sudah tersinkron ke OneLake dalam format Delta Parquet.
+
+Kamu juga bisa memverifikasi file Delta sudah dibuat dengan cara:
+1. Di Explorer pane KQL Database, hover tabel → klik **⋯** → **View files**
+2. Pastikan ada folder `_delta_log` dan file `.parquet`
+
+> **💡 Tips:** Jika `Latency` masih besar, pastikan data generator sudah berjalan dan telah mengirim cukup banyak data. Eventhouse butuh data yang cukup untuk membuat file Parquet berukuran optimal (~200-256 MB). Dengan TargetLatencyInMinutes=5, data akan ditulis setiap 5 menit terlepas dari ukurannya.
+
+### 8d. Buat Lakehouse
 
 1. Kembali ke workspace **`Contoso-Mining-RTI`**
 2. Klik **+ New item** → **Lakehouse**
 3. Nama: `ContosoMiningLH`
 4. Klik **Create**
 
-### 8c. Buat OneLake Shortcut ke Eventhouse
+### 8e. Buat OneLake Shortcut ke Eventhouse
+
+> **⚠️ Penting:** Gunakan **"New table shortcut"** (bukan "New shortcut"). Di Lakehouse, tipe shortcut menentukan di mana data muncul:
+> | Menu | Lokasi | Fungsi |
+> |------|--------|--------|
+> | **New table shortcut** | Tables section | Shortcut ke satu Delta table, otomatis terdaftar sebagai tabel |
+> | **New schema shortcut** | Tables section | Shortcut ke folder berisi multiple Delta tables (muncul sebagai schema) |
+> | **New shortcut** | Files section | Shortcut ke folder apapun, format apapun, TIDAK otomatis jadi tabel |
 
 1. Dalam Lakehouse `ContosoMiningLH`, klik kanan pada folder **Tables** di Explorer pane
-2. Pilih **New shortcut** (atau **New table shortcut**, tergantung versi Lakehouse)
+2. Pilih **New table shortcut**
 3. Di jendela **New shortcut**, pada bagian **Internal sources**, pilih **Microsoft OneLake**
 4. Di jendela **Select a data source type**, pilih **`ContosoMiningEH`** (KQL Database) → klik **Next**
-5. Expand folder **Tables** — kamu akan melihat 3 tabel yang sudah di-expose via OneLake Availability:
+5. Expand folder **Tables** — kamu akan melihat 3 tabel:
    - ✅ Centang `HaulingEvents`
    - ✅ Centang `StockpileEvents`
    - ✅ Centang `BargeLoadingEvents`
 6. Klik **Next**
 7. Di halaman review, pastikan 3 shortcut terdaftar → klik **Create**
 
-> **💡 Tips:** Kamu bisa memilih hingga **50 tabel sekaligus** dalam satu kali pembuatan shortcut — tidak perlu membuat satu per satu.
+> **💡 Tips:** Kamu bisa memilih hingga **50 tabel sekaligus** dalam satu kali pembuatan shortcut.
+>
+> **🔴 Tabel greyed out / tidak bisa dicentang?** Ini berarti mirroring belum selesai. Kembali ke **Step 8c** dan pastikan `Latency = 00:00:00` untuk semua tabel. Jika file Delta Parquet belum ada di OneLake, shortcut wizard tidak bisa memvalidasi tabel sebagai Delta table yang valid.
 
-### 8d. Verifikasi Shortcut
+### 8f. Verifikasi Shortcut
 
 1. Lakehouse akan refresh otomatis. Kamu akan melihat 3 tabel baru di folder **Tables** dengan **ikon shortcut** (panah kecil)
 2. Klik salah satu tabel shortcut untuk preview data
@@ -470,11 +505,15 @@ df = spark.sql("SELECT * FROM ContosoMiningLH.HaulingEvents LIMIT 10")
 display(df)
 ```
 
-> **⚠️ Jika tabel shortcut kosong atau tidak muncul:**
-> - Pastikan OneLake Availability sudah **Enabled** di Step 8a
-> - Tunggu sesuai latency (default 3 jam, atau 5 menit jika sudah diatur)
-> - Cek status mirroring: `.show table HaulingEvents mirroring operations`
-> - Pastikan data generator (Step 4) masih berjalan dan sudah mengirim data cukup banyak
+> **⚠️ Troubleshooting shortcut:**
+>
+> | Masalah | Solusi |
+> |---------|--------|
+> | Tabel greyed out saat membuat shortcut | Mirroring belum selesai — cek `Latency` di Step 8c |
+> | Tabel tidak muncul di daftar | OneLake Availability belum Enabled (Step 8a) |
+> | Shortcut berhasil tapi kosong | Data belum ter-mirror — tunggu latency atau cek generator |
+> | Error "Delta format not found" | File Parquet belum dibuat — verifikasi via View files di KQL Database |
+> | Nama tabel mengandung spasi | Delta format tidak support nama tabel dengan spasi |
 
 ✅ **Hasil:** 3 tabel shortcut muncul di Lakehouse — `HaulingEvents`, `StockpileEvents`, `BargeLoadingEvents`. Data dari Eventhouse bisa diakses dalam format Delta Lake tanpa duplikasi. Siap digunakan oleh Notebook (Step 9), Semantic Model (Step 10), dan Power BI (Step 11).
 
@@ -730,8 +769,9 @@ Klik **Publish** untuk membuat endpoint. Opsional: integrasikan ke **Copilot Stu
 | Data generator error `Connection refused` | Cek connection string. Pastikan copy dari Eventstream > Custom App > Keys |
 | Eventstream status "Inactive" | Klik Eventstream → klik **Publish** ulang |
 | Dashboard tiles kosong | Data belum cukup. Biarkan generator jalan 5-10 menit, lalu refresh |
-| Notebook error `Table not found` | Pastikan shortcut dari Eventhouse ke Lakehouse sudah dibuat (Step 8c) dan OneLake Availability aktif (Step 8a) |
-| Shortcut tabel kosong | OneLake Availability belum sync. Cek latency: `.show table <nama> mirroring operations`. Atur TargetLatencyInMinutes=5 untuk demo |
+| Notebook error `Table not found` | Pastikan shortcut dari Eventhouse ke Lakehouse sudah dibuat (Step 8e) dan OneLake Availability aktif (Step 8a) |
+| Shortcut tabel greyed out | Mirroring belum selesai. Jalankan `.alter-merge table policy mirroring` (Step 8b), tunggu, lalu cek `Latency = 00:00:00` (Step 8c) |
+| Shortcut tabel kosong | OneLake Availability belum sync. Cek latency: `.show table <nama> mirroring operations`. Atur TargetLatencyInMinutes=5 (Step 8b) |
 | Semantic Model relationship error | Pastikan kolom sudah matching. Cek nama kolom case-sensitive |
 | Data Agent menjawab "I don't know" | Tambahkan **Example Queries** di tab Instructions |
 | Operations Agent tidak muncul | Butuh **paid F2+ capacity** — tidak bisa pakai trial |
