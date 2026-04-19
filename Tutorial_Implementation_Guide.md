@@ -385,27 +385,89 @@ Apapun metode yang dipakai:
 
 ---
 
-## Step 8: Buat Lakehouse + Shortcut
+## Step 8: Buat Lakehouse + Shortcut dari Eventhouse
 
-Lakehouse digunakan untuk analisis historis — data disimpan sebagai Delta tables.
+Lakehouse digunakan untuk analisis historis. Kita akan membuat shortcut dari Eventhouse ke Lakehouse — ini berarti data tetap satu salinan (zero-copy), tapi bisa diakses via Spark SQL, Power BI Direct Lake, dan engine Fabric lainnya dalam format **Delta Lake**.
 
-### 8a. Buat Lakehouse
+> **💡 Shortcut vs Copy:** Shortcut adalah symbolic link di OneLake. Tidak ada duplikasi data dan tidak ada biaya storage tambahan. Jika shortcut dihapus, data asli di Eventhouse tetap aman.
 
-1. Klik **+ New item** → **Lakehouse**
-2. Nama: `ContosoMiningLH`
+### 8a. Aktifkan OneLake Availability di Eventhouse
 
-### 8b. Buat Shortcut dari Eventhouse
+> **⚠️ Langkah ini wajib!** Sebelum bisa membuat shortcut, data di Eventhouse harus di-expose ke OneLake dalam format Delta Parquet terlebih dahulu.
 
-Shortcut = link ke data tanpa copy. Data tetap satu salinan.
+1. Buka **`ContosoMiningEH`** (Eventhouse dari Step 2)
+2. Klik **KQL Database** di dalamnya
+3. Di panel **Database details** (sisi kanan), cari bagian **OneLake**
+4. Set **Availability** ke **Enabled**
+5. Di jendela **Enable OneLake Availability**:
+   - Centang **Apply to existing tables** (agar 3 tabel yang sudah ada ikut ter-expose)
+   - Klik **Enable**
+6. Tunggu hingga status berubah — panel details akan menunjukkan OneLake availability = Enabled
 
-1. Dalam Lakehouse, klik **... (menu)** pada folder **Tables**
-2. Pilih **New shortcut**
-3. Pilih **Microsoft OneLake**
-4. Pilih `ContosoMiningEH` (Eventhouse)
-5. Pilih tabel `HaulingEvents` → klik **Create**
-6. Ulangi untuk `StockpileEvents` dan `BargeLoadingEvents`
+> **⏱️ Catatan Latency:** Secara default, data baru muncul di OneLake dalam waktu hingga **3 jam** (adaptive batching untuk membuat file Parquet yang optimal). Untuk demo, kamu bisa mempercepat ke **5 menit** dengan menjalankan perintah KQL berikut di Query editor untuk setiap tabel:
+>
+> ```kql
+> .alter-merge table HaulingEvents policy mirroring dataformat=parquet with (IsEnabled=true, TargetLatencyInMinutes=5)
+> ```
+> ```kql
+> .alter-merge table StockpileEvents policy mirroring dataformat=parquet with (IsEnabled=true, TargetLatencyInMinutes=5)
+> ```
+> ```kql
+> .alter-merge table BargeLoadingEvents policy mirroring dataformat=parquet with (IsEnabled=true, TargetLatencyInMinutes=5)
+> ```
+>
+> Untuk mengecek apakah data sudah tersedia di OneLake:
+> ```kql
+> .show table HaulingEvents mirroring operations
+> ```
+> Jika kolom **Latency** menunjukkan `00:00:00`, semua data sudah tersinkron.
 
-✅ **Hasil:** 3 tabel muncul di Lakehouse sebagai shortcut (icon panah di tabel).
+### 8b. Buat Lakehouse
+
+1. Kembali ke workspace **`Contoso-Mining-RTI`**
+2. Klik **+ New item** → **Lakehouse**
+3. Nama: `ContosoMiningLH`
+4. Klik **Create**
+
+### 8c. Buat OneLake Shortcut ke Eventhouse
+
+1. Dalam Lakehouse `ContosoMiningLH`, klik kanan pada folder **Tables** di Explorer pane
+2. Pilih **New shortcut** (atau **New table shortcut**, tergantung versi Lakehouse)
+3. Di jendela **New shortcut**, pada bagian **Internal sources**, pilih **Microsoft OneLake**
+4. Di jendela **Select a data source type**, pilih **`ContosoMiningEH`** (KQL Database) → klik **Next**
+5. Expand folder **Tables** — kamu akan melihat 3 tabel yang sudah di-expose via OneLake Availability:
+   - ✅ Centang `HaulingEvents`
+   - ✅ Centang `StockpileEvents`
+   - ✅ Centang `BargeLoadingEvents`
+6. Klik **Next**
+7. Di halaman review, pastikan 3 shortcut terdaftar → klik **Create**
+
+> **💡 Tips:** Kamu bisa memilih hingga **50 tabel sekaligus** dalam satu kali pembuatan shortcut — tidak perlu membuat satu per satu.
+
+### 8d. Verifikasi Shortcut
+
+1. Lakehouse akan refresh otomatis. Kamu akan melihat 3 tabel baru di folder **Tables** dengan **ikon shortcut** (panah kecil)
+2. Klik salah satu tabel shortcut untuk preview data
+3. Verifikasi juga melalui **SQL analytics endpoint** — klik mode selector di Lakehouse lalu jalankan:
+
+```sql
+SELECT TOP 10 * FROM [ContosoMiningLH].[dbo].[HaulingEvents]
+```
+
+4. Atau verifikasi bahwa data bisa dibaca via **Spark** (ini sama seperti yang akan dilakukan di Step 9):
+
+```python
+df = spark.sql("SELECT * FROM ContosoMiningLH.HaulingEvents LIMIT 10")
+display(df)
+```
+
+> **⚠️ Jika tabel shortcut kosong atau tidak muncul:**
+> - Pastikan OneLake Availability sudah **Enabled** di Step 8a
+> - Tunggu sesuai latency (default 3 jam, atau 5 menit jika sudah diatur)
+> - Cek status mirroring: `.show table HaulingEvents mirroring operations`
+> - Pastikan data generator (Step 4) masih berjalan dan sudah mengirim data cukup banyak
+
+✅ **Hasil:** 3 tabel shortcut muncul di Lakehouse — `HaulingEvents`, `StockpileEvents`, `BargeLoadingEvents`. Data dari Eventhouse bisa diakses dalam format Delta Lake tanpa duplikasi. Siap digunakan oleh Notebook (Step 9), Semantic Model (Step 10), dan Power BI (Step 11).
 
 ---
 
@@ -659,7 +721,8 @@ Klik **Publish** untuk membuat endpoint. Opsional: integrasikan ke **Copilot Stu
 | Data generator error `Connection refused` | Cek connection string. Pastikan copy dari Eventstream > Custom App > Keys |
 | Eventstream status "Inactive" | Klik Eventstream → klik **Publish** ulang |
 | Dashboard tiles kosong | Data belum cukup. Biarkan generator jalan 5-10 menit, lalu refresh |
-| Notebook error `Table not found` | Pastikan shortcut dari Eventhouse ke Lakehouse sudah dibuat (Step 8b) |
+| Notebook error `Table not found` | Pastikan shortcut dari Eventhouse ke Lakehouse sudah dibuat (Step 8c) dan OneLake Availability aktif (Step 8a) |
+| Shortcut tabel kosong | OneLake Availability belum sync. Cek latency: `.show table <nama> mirroring operations`. Atur TargetLatencyInMinutes=5 untuk demo |
 | Semantic Model relationship error | Pastikan kolom sudah matching. Cek nama kolom case-sensitive |
 | Data Agent menjawab "I don't know" | Tambahkan **Example Queries** di tab Instructions |
 | Operations Agent tidak muncul | Butuh **paid F2+ capacity** — tidak bisa pakai trial |
@@ -679,7 +742,7 @@ Setelah semua step selesai, kamu seharusnya punya item-item ini di workspace:
 ├── 🔄 BargeLoadingStream       (Eventstream)
 ├── 📺 Mining Operations Live   (Real-Time Dashboard)
 ├── ⚠️ StockpileAlerts          (Fabric Activator)
-├── 🏠 ContosoMiningLH          (Lakehouse — 3 shortcuts + 9 tables)
+├── 🏠 ContosoMiningLH          (Lakehouse — 3 shortcuts + 9 star schema tables)
 ├── 📓 Create_Star_Schema       (Notebook)
 ├── 📊 ContosoMining_SemanticModel (Semantic Model)
 ├── 📈 ContosoMining_Historical_Analysis (Power BI Report)
@@ -702,6 +765,8 @@ Setelah semua step selesai, kamu seharusnya punya item-item ini di workspace:
 | Real-Time Dashboard | [learn.microsoft.com/fabric/real-time-intelligence/dashboard-real-time-create](https://learn.microsoft.com/en-us/fabric/real-time-intelligence/dashboard-real-time-create) |
 | Data Activator | [learn.microsoft.com/fabric/real-time-intelligence/data-activator](https://learn.microsoft.com/en-us/fabric/real-time-intelligence/data-activator/activator-introduction) |
 | Lakehouse | [learn.microsoft.com/fabric/data-engineering/lakehouse-overview](https://learn.microsoft.com/en-us/fabric/data-engineering/lakehouse-overview) |
+| OneLake Availability | [learn.microsoft.com/fabric/real-time-intelligence/one-logical-copy](https://learn.microsoft.com/en-us/fabric/real-time-intelligence/event-house-onelake-availability) |
+| OneLake Shortcuts | [learn.microsoft.com/fabric/onelake/onelake-shortcuts](https://learn.microsoft.com/en-us/fabric/onelake/onelake-shortcuts) |
 | Semantic Model | [learn.microsoft.com/fabric/fundamentals/semantic-models](https://learn.microsoft.com/en-us/power-bi/connect-data/service-datasets-understand) |
 | Data Agent | [learn.microsoft.com/fabric/data-science/concept-data-agent](https://learn.microsoft.com/en-us/fabric/data-science/concept-data-agent) |
 | Fabric IQ | [learn.microsoft.com/fabric/real-time-intelligence/fabric-iq](https://learn.microsoft.com/en-us/fabric/real-time-intelligence/fabric-iq/overview) |
