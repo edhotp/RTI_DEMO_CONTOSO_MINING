@@ -159,7 +159,7 @@ Python Data Generator → 3 Eventstream (Custom App) → Eventhouse (KQL Databas
 11. **scripts/requirements.txt** — Satu baris: azure-eventhub>=5.11.0
 
 12. **.gitignore** — Python (__pycache__, *.py[cod], .env, venv), IDE (.vscode, .idea),
-    OS (Thumbs.db, .DS_Store), sensitive (event_stream_credential.txt, ITM_Coal_Business*)
+    OS (Thumbs.db, .DS_Store), sensitive (event_stream_credential.txt)
 
 === ATURAN PENTING ===
 
