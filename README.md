@@ -28,8 +28,6 @@ Data Generator (Python) → Eventstream → Eventhouse (KQL) → Real-Time Dashb
 |------|-----------|
 | [**Contoso_Mining_Fabric_RTI_Demo_Plan.md**](Contoso_Mining_Fabric_RTI_Demo_Plan.md) | Rencana demo lengkap: arsitektur, 5 skenario, data schema, dashboard design, demo script 20 menit, business impact |
 | [**Tutorial_Implementation_Guide.md**](Tutorial_Implementation_Guide.md) | Tutorial step-by-step (13 langkah) dalam Bahasa Indonesia — dari buat workspace sampai deploy Operations Agent |
-| [**ITM_Coal_Business_Overview.md**](ITM_Coal_Business_Overview.md) | Overview bisnis coal mining ITM dan value chain (Bahasa Indonesia) |
-| [**ITM_Coal_Business_Overview_en.md**](ITM_Coal_Business_Overview_en.md) | Versi English dari overview bisnis di atas |
 
 ## Scripts
 
