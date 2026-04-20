@@ -437,19 +437,18 @@ Jalankan perintah berikut di **KQL Query editor** (di dalam KQL Database) untuk 
 
 > **🚨 JANGAN lanjut ke langkah 8d sebelum mirroring selesai!** Jika mirroring belum selesai, tabel di Eventhouse akan terlihat tapi **greyed out** (tidak bisa dipilih) saat membuat shortcut.
 
-Cek status mirroring untuk setiap tabel:
+Cek status mirroring seluruh database sekaligus:
 
 ```kql
-.show table HaulingEvents mirroring operations
-```
-```kql
-.show table StockpileEvents mirroring operations
-```
-```kql
-.show table BargeLoadingEvents mirroring operations
+.show database ContosoMiningEH operations mirroring-statistics
 ```
 
-**Tunggu sampai kolom `Latency` menunjukkan `00:00:00`** untuk ketiga tabel. Ini berarti semua data sudah tersinkron ke OneLake dalam format Delta Parquet.
+Output berisi kolom:
+- **CompletionPercentage** — target 100
+- **MaxLatency** — tunggu sampai `00:00:00`
+- **PendingDataSize** — tunggu sampai `0`
+
+**Tunggu sampai `MaxLatency = 00:00:00` dan `CompletionPercentage = 100`**. Ini berarti semua data sudah tersinkron ke OneLake dalam format Delta Parquet.
 
 Kamu juga bisa memverifikasi file Delta sudah dibuat dengan cara:
 1. Di Explorer pane KQL Database, hover tabel → klik **⋯** → **View files**
@@ -509,7 +508,7 @@ display(df)
 >
 > | Masalah | Solusi |
 > |---------|--------|
-> | Tabel greyed out saat membuat shortcut | Mirroring belum selesai — cek `Latency` di Step 8c |
+> | Tabel greyed out saat membuat shortcut | Mirroring belum selesai — cek `.show database <DB> operations mirroring-statistics` di Step 8c |
 > | Tabel tidak muncul di daftar | OneLake Availability belum Enabled (Step 8a) |
 > | Shortcut berhasil tapi kosong | Data belum ter-mirror — tunggu latency atau cek generator |
 > | Error "Delta format not found" | File Parquet belum dibuat — verifikasi via View files di KQL Database |
@@ -770,8 +769,8 @@ Klik **Publish** untuk membuat endpoint. Opsional: integrasikan ke **Copilot Stu
 | Eventstream status "Inactive" | Klik Eventstream → klik **Publish** ulang |
 | Dashboard tiles kosong | Data belum cukup. Biarkan generator jalan 5-10 menit, lalu refresh |
 | Notebook error `Table not found` | Pastikan shortcut dari Eventhouse ke Lakehouse sudah dibuat (Step 8e) dan OneLake Availability aktif (Step 8a) |
-| Shortcut tabel greyed out | Mirroring belum selesai. Jalankan `.alter-merge table policy mirroring` (Step 8b), tunggu, lalu cek `Latency = 00:00:00` (Step 8c) |
-| Shortcut tabel kosong | OneLake Availability belum sync. Cek latency: `.show table <nama> mirroring operations`. Atur TargetLatencyInMinutes=5 (Step 8b) |
+| Shortcut tabel greyed out | Mirroring belum selesai. Jalankan `.alter-merge table policy mirroring` (Step 8b), tunggu, lalu cek `.show database <DB> operations mirroring-statistics` (Step 8c) |
+| Shortcut tabel kosong | OneLake Availability belum sync. Cek latency: `.show database <DB> operations mirroring-statistics`. Atur TargetLatencyInMinutes=5 (Step 8b) |
 | Semantic Model relationship error | Pastikan kolom sudah matching. Cek nama kolom case-sensitive |
 | Data Agent menjawab "I don't know" | Tambahkan **Example Queries** di tab Instructions |
 | Operations Agent tidak muncul | Butuh **paid F2+ capacity** — tidak bisa pakai trial |
