@@ -28,6 +28,8 @@ Data Generator (Python) → Eventstream → Eventhouse (KQL) → Real-Time Dashb
 |------|-----------|
 | [**Contoso_Mining_Fabric_RTI_Demo_Plan.md**](Contoso_Mining_Fabric_RTI_Demo_Plan.md) | Rencana demo lengkap: arsitektur, 5 skenario, data schema, dashboard design, demo script 20 menit, business impact |
 | [**Tutorial_Implementation_Guide.md**](Tutorial_Implementation_Guide.md) | Tutorial step-by-step (13 langkah) dalam Bahasa Indonesia — dari buat workspace sampai deploy Operations Agent |
+| [**data_catalog_copilot.md**](data_catalog_copilot.md) | Data catalog lengkap: Mermaid ER diagram, table descriptions, synonyms, DAX measures, AI instructions untuk Power BI Copilot |
+| [**demo_questions.md**](demo_questions.md) | 70+ pertanyaan demo (Level 1–6) untuk Fabric Data Agent & Power BI Copilot, bilingual ID/EN |
 
 ## Scripts
 
