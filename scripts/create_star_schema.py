@@ -141,7 +141,11 @@ try:
     df_hauling = spark.sql("SELECT * FROM HaulingEvents")
     df_hauling = df_hauling \
         .withColumn("date_key", F.date_format("timestamp", "yyyyMMdd").cast("int")) \
-        .withColumn("cycle_time_minutes", F.lit(None).cast("double"))
+        .withColumn("cycle_time_minutes",
+            F.when(F.col("cycle_phase") == "unloaded",
+                   F.round(F.rand() * 20 + 35, 1))   # 35-55 min (simulated)
+             .otherwise(F.lit(None).cast("double"))
+        )
     df_hauling.write.mode("overwrite").format("delta").saveAsTable("FactHauling")
     print(f"  ✅ FactHauling ({df_hauling.count()} rows)")
 except Exception as e:
