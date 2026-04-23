@@ -12,29 +12,66 @@ Cara pakai:
 """
 
 import json
+import os
 import random
+import sys
 import time
 import threading
 from datetime import datetime, timezone, timedelta
 from azure.eventhub import EventHubProducerClient, EventData
 
 # =============================================================================
-# CONFIGURATION — Isi dengan Connection String dari Eventstream > Custom App
+# CONFIGURATION — Credential dibaca dari environment variables / file .env
 # =============================================================================
-# Cara mendapatkan:
-#   1. Buka Eventstream di Fabric Portal
-#   2. Klik source "Custom App"
-#   3. Klik tab "Keys"
-#   4. Copy "Connection string" dan "Event hub name"
+# JANGAN hardcode connection string di file ini (akan ter-commit ke git).
+#
+# Cara pakai:
+#   1. Copy `.env.example` ke `.env` di root repo (file `.env` sudah di .gitignore)
+#   2. Isi nilai dari Eventstream > Custom App > tab "Keys"
+#   3. Jalankan: `python scripts/data_generator.py`
+#
+# Atau export manual sebelum run:
+#   $env:HAULING_CONN_STR="Endpoint=sb://...;EntityPath=..."   (PowerShell)
+#   export HAULING_CONN_STR="Endpoint=sb://...;EntityPath=..." (bash)
 
-HAULING_CONN_STR = "Endpoint=sb://esehusw32zdym5o9dhdl4d9n.servicebus.windows.net/;SharedAccessKeyName=key_bcfd1138-54c7-4078-a2e6-e72d67ad2f9e;SharedAccessKey=***REMOVED***;EntityPath=es_abb5840f-5b47-4655-92ba-764d235291be"
-HAULING_EVENTHUB = "es_abb5840f-5b47-4655-92ba-764d235291be"
+def _load_dotenv():
+    """Loader minimal .env (KEY=VALUE per baris) tanpa dependency tambahan."""
+    here = os.path.dirname(os.path.abspath(__file__))
+    for candidate in (os.path.join(here, ".env"), os.path.join(here, "..", ".env")):
+        if os.path.isfile(candidate):
+            with open(candidate, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith("#") or "=" not in line:
+                        continue
+                    k, v = line.split("=", 1)
+                    os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
+            return
 
-STOCKPILE_CONN_STR = "Endpoint=sb://esehusw3c7zzuw2zak1u528q.servicebus.windows.net/;SharedAccessKeyName=key_3f4e6241-2c28-4ee8-b773-3bfe4689981c;SharedAccessKey=***REMOVED***;EntityPath=es_06cf4ddb-2212-45aa-a339-935b30c2fef3"
-STOCKPILE_EVENTHUB = "es_06cf4ddb-2212-45aa-a339-935b30c2fef3"
+_load_dotenv()
 
-BARGE_CONN_STR = "Endpoint=sb://esehusw3dpernnpamxmi04nx.servicebus.windows.net/;SharedAccessKeyName=key_560a2193-bb5e-43ec-88ec-6fd4f02a1102;SharedAccessKey=***REMOVED***;EntityPath=es_c021a294-f90b-4f46-bffc-7491e9a312ae"
-BARGE_EVENTHUB = "es_c021a294-f90b-4f46-bffc-7491e9a312ae"
+def _eventhub_from_conn_str(conn_str: str) -> str:
+    for part in conn_str.split(";"):
+        if part.startswith("EntityPath="):
+            return part.split("=", 1)[1]
+    return ""
+
+def _require(name: str) -> str:
+    val = os.environ.get(name, "").strip()
+    if not val:
+        sys.exit(
+            f"[ERR] Environment variable '{name}' belum di-set.\n"
+            f"      Buat file .env dari .env.example, atau export manual."
+        )
+    return val
+
+HAULING_CONN_STR   = _require("HAULING_CONN_STR")
+STOCKPILE_CONN_STR = _require("STOCKPILE_CONN_STR")
+BARGE_CONN_STR     = _require("BARGE_CONN_STR")
+
+HAULING_EVENTHUB   = os.environ.get("HAULING_EVENTHUB")   or _eventhub_from_conn_str(HAULING_CONN_STR)
+STOCKPILE_EVENTHUB = os.environ.get("STOCKPILE_EVENTHUB") or _eventhub_from_conn_str(STOCKPILE_CONN_STR)
+BARGE_EVENTHUB     = os.environ.get("BARGE_EVENTHUB")     or _eventhub_from_conn_str(BARGE_CONN_STR)
 
 # =============================================================================
 # MASTER DATA
